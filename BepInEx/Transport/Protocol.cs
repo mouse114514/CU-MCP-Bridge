@@ -71,6 +71,13 @@ namespace CUMCP.Protocol
             Seq = System.Threading.Interlocked.Increment(ref _seq),
             Data = JObject.FromObject(new { ack_seq = ackSeq, success, error })
         };
+
+        public static Message OrderResult(string id, bool success, string error = null) => new Message
+        {
+            Type = "order_result",
+            Seq = System.Threading.Interlocked.Increment(ref _seq),
+            Data = JObject.FromObject(new { id, success, error })
+        };
     }
 
     public class PlayerState

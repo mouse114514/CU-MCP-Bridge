@@ -1,12 +1,13 @@
 # CU-MCP-Bridge
 
-BepInEx mod + Python MCP server that lets AI assistants control [Casualties Unknown](https://store.steampowered.com/app/Casualties_Unknown) gameplay in real time via named pipe.
+BepInEx mod + Python MCP server that lets AI assistants control [Casualties Unknown](https://store.steampowered.com/app/Casualties_Unknown) gameplay in real time over a local HTTP link.
 
 ## Requirements
 
-- Windows 10/11
+- Windows, Linux, or macOS — the game may run natively or under Proton/Wine; a
+  `127.0.0.1` HTTP socket bridges the two either way
 - [Casualties Unknown](https://store.steampowered.com/app/Casualties_Unknown) (Steam)
-- Python 3.10+
+- Python 3.10+ (standard library only — no `pywin32`)
 - .NET SDK (for building the mod)
 - [BepInEx](https://docs.bepinex.dev/articles/user_guide/installation/index.html) installed in the game
 
@@ -23,9 +24,20 @@ Copy the two DLLs from `mod/` into your game's `BepInEx/plugins/` folder:
 
 ### 2. Install Python dependencies
 
+With [uv](https://docs.astral.sh/uv/) (recommended — `pyproject.toml` + `uv.lock`
+are checked in):
+
+```bash
+uv sync
+```
+
+or with pip:
+
 ```bash
 pip install -r requirements.txt
 ```
+
+Standard library only otherwise — no `pywin32`, no native transport dependency.
 
 ### 3. Configure your AI client
 
@@ -50,9 +62,22 @@ Add to your MCP configuration (e.g. `opencode.json`):
 
 1. Start the game, enter a level
 2. Start the Python server: `python src/bridge_server/server.py`
+   (usually launched for you by the MCP client via the config above)
 3. Ask your AI assistant to control the player
 
-> Order matters: the server must start *after* the game is running.
+> Start order no longer matters: the mod keeps polling until the server is up,
+> and the server queues anything it wants to send until the mod connects.
+
+### Configuration
+
+The mod and server rendezvous on `http://127.0.0.1:8765` by default.
+
+- **Server**: set `CU_MCP_HTTP_HOST` / `CU_MCP_HTTP_PORT` before launching
+  `server.py`.
+- **Mod**: set `"http_url"` in `cu_mcp_config.json` (next to the game executable),
+  e.g. `{ "http_url": "http://127.0.0.1:8765" }`.
+
+Both must point at the same host/port.
 
 ## Building from source
 
@@ -73,20 +98,28 @@ AI Client (opencode)
         |
     stdio (JSON-RPC)
         |
-Python FastMCP Server (src/bridge_server/)
+Python FastMCP Server (src/bridge_server/)   <-- HTTP server on 127.0.0.1:8765
         |
-    Named Pipe (win32pipe, newline-delimited JSON)
+    Local HTTP (newline-delimited JSON Message bodies)
         |
-C# BepInEx Mod (BepInEx/, inside Unity game)
+C# BepInEx Mod (BepInEx/, inside Unity game) <-- HTTP client (poll + post)
         |
     Unity Game (Casualties Unknown)
 ```
 
 ### Communication
 
-- **AI -> Game**: Orders are sent over the named pipe and executed on Unity's main thread
-- **Game -> AI**: Player state and query results flow back over the same pipe
-- **Blocking**: Each command blocks until the mod reports completion (success/failure/timeout)
+The mod drives both directions against the server:
+
+- `GET /poll?timeout=<sec>` — long-poll for the next **AI -> Game** message
+  (order / query / contingency); `204` means "nothing yet, poll again".
+- `POST /message` — **Game -> AI** player state, query/search results, order
+  results, acks, interrupts (newline-delimited JSON; batches allowed).
+- `GET /health` — liveness / `connected` flag.
+
+Message payloads are byte-for-byte the same newline-delimited JSON `Message`
+objects the previous named-pipe transport used. Each order still blocks on the
+MCP side until the mod reports completion (success/failure/timeout).
 
 ## Project structure
 
@@ -96,15 +129,16 @@ CU-MCP-Bridge/
 │   ├── Executor/           # Order execution, pathfinding, movement
 │   ├── Collector/          # Game state collection (player, environment)
 │   ├── Contingency/        # Local condition-action rules
-│   ├── Pipe/               # Named pipe client + protocol
+│   ├── Transport/          # HTTP bridge client + wire protocol
 │   ├── AIPlayerManager.cs  # AI companion creation/destruction
 │   ├── BridgePlugin.cs     # Entry point, tick loop
 │   └── DebugGUI.cs         # F6 debug panel
 ├── src/bridge_server/      # Python MCP server
 │   ├── server.py           # MCP tool definitions
-│   ├── state_manager.py    # Pipe reader, state cache
+│   ├── state_manager.py    # inbound reader, state cache
 │   ├── order_manager.py    # Order queue
-│   ├── pipe_server.py      # Named pipe server (win32pipe)
+│   ├── transport.py        # HTTP bridge server (stdlib http.server)
+│   ├── pipe_server.py      # back-compat shim -> transport.py
 │   └── contingency.py      # Contingency rule manager
 ├── tests/                  # Unit & integration tests
 ├── deploy.ps1              # Build + deploy script

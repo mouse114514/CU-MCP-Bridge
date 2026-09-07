@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\bridge_mod\CU-MCP-Mod.csproj" />
+    <ProjectReference Include="..\..\BepInEx\CU-MCP-Mod.csproj" />
   </ItemGroup>
 
   <ItemGroup>

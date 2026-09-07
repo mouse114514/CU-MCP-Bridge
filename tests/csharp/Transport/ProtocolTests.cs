@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using CUMCP.Protocol;
 
-namespace CUMCP.Tests.Pipe
+namespace CUMCP.Tests.Transport
 {
     [TestFixture]
     public class ProtocolTests

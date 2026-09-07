@@ -1,14 +1,14 @@
 using UnityEngine;
-using CUMCP.Pipe;
+using CUMCP.Transport;
 using CUMCP.Protocol;
 
 namespace CUMCP.Executor
 {
     public class InterruptDetector
     {
-        private readonly PipeClient _pipe;
+        private readonly HttpBridgeClient _pipe;
 
-        public InterruptDetector(PipeClient pipe)
+        public InterruptDetector(HttpBridgeClient pipe)
         {
             _pipe = pipe;
         }

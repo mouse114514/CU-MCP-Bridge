@@ -1,5 +1,5 @@
 from typing import Optional
-from pipe_server import PipeServer
+from transport import HttpBridgeServer as PipeServer
 
 
 class Order:

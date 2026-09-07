@@ -1,5 +1,5 @@
 using UnityEngine;
-using CUMCP.Pipe;
+using CUMCP.Transport;
 using CUMCP.Protocol;
 
 namespace CUMCP.Collector
@@ -8,7 +8,7 @@ namespace CUMCP.Collector
     {
         public bool Enabled { get; set; } = true;
 
-        private readonly PipeClient _pipe;
+        private readonly HttpBridgeClient _pipe;
         private readonly PlayerSnapshot _playerSnap = new PlayerSnapshot();
         private readonly EnvironmentScan _envScan = new EnvironmentScan();
         private PlayerState _lastState;
@@ -17,7 +17,7 @@ namespace CUMCP.Collector
         private const float SCAN_INTERVAL = 2f;
         private const float HEARTBEAT_INTERVAL = 5f;
 
-        public DataCollector(PipeClient pipe)
+        public DataCollector(HttpBridgeClient pipe)
         {
             _pipe = pipe;
         }

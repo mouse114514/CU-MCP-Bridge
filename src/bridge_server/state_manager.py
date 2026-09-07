@@ -2,7 +2,7 @@ import json
 import threading
 from typing import Optional
 
-from pipe_server import PipeServer
+from transport import HttpBridgeServer as PipeServer
 
 
 class StateManager:
@@ -28,15 +28,11 @@ class StateManager:
         while True:
             line = self.pipe.read_line()
             if line is None:
-                print("[StateManager] Pipe disconnected, reconnecting...")
-                self.pipe.close()
-                try:
-                    self.pipe.wait_for_connect()
-                    print("[StateManager] Reconnected")
-                except Exception as e:
-                    print(f"[StateManager] Reconnect failed: {e}")
-                    break
-                continue
+                # HTTP transport: read_line only returns None once the server is
+                # closed. Client reconnects are transparent (the mod just resumes
+                # polling), so there is nothing to re-establish here.
+                print("[StateManager] Transport closed, stopping reader")
+                break
 
             try:
                 msg = json.loads(line)

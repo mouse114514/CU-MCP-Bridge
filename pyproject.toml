@@ -1,0 +1,18 @@
+[project]
+name = "cu-mcp-bridge"
+version = "1.0.0"
+description = "stdio MCP server bridging AI assistants to the Casualties: Unknown CU-MCP BepInEx mod over a local HTTP link"
+requires-python = ">=3.10"
+# server.py uses the v1 MCP SDK API (`from mcp.server.fastmcp import FastMCP`);
+# mcp 2.x renamed FastMCP, so pin to v1. The game link is stdlib http.server /
+# urllib -- no pywin32, no extra transport dependency, works on any platform.
+dependencies = [
+    "mcp>=1.2.0,<2",
+]
+
+[project.optional-dependencies]
+# C# unit tests only; not needed to run the server.
+dev = ["pytest>=7"]
+
+[tool.uv]
+package = false

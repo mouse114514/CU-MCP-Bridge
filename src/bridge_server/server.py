@@ -1,12 +1,10 @@
 import sys
 import threading
-import os
-import json as _json
 import time
 
 from mcp.server.fastmcp import FastMCP
 
-from pipe_server import PipeServer, PIPE_NAME, SOCKET_PATH
+from transport import HttpBridgeServer as PipeServer, PIPE_NAME, SOCKET_PATH, DEFAULT_HOST, DEFAULT_PORT
 from state_manager import StateManager
 from order_manager import OrderManager, Order
 from contingency import ContingencyManager, ContingencyRule
@@ -18,16 +16,10 @@ contingency_mgr: ContingencyManager = None
 
 mcp = FastMCP("CU-MCP-Bridge")
 
-GAME_DIR = r"C:\Program Files (x86)\Steam\steamapps\common\Casualties Unknown Demo"
-CMD_FILE = os.path.join(GAME_DIR, "cu_mcp_commands.json")
-
-
 def _dispatch_order(action: str, parameters: dict) -> dict:
-    """Low-level helper: write an order to the file queue."""
+    """Queue an order for the mod to pull on its next GET /poll."""
     order = Order(action=action, parameters=parameters)
-    msg = _json.dumps({"type": "order", "data": order.to_dict()})
-    with open(CMD_FILE, "w", encoding="utf-8") as f:
-        f.write(msg)
+    pipe.send({"type": "order", "data": order.to_dict()})
     return {"order_id": order.id, "status": "dispatched"}
 
 
@@ -70,9 +62,7 @@ def follow(distance: float = 2.0, max_ydiff: float = 3.0) -> dict:
 def move_to_player(arrival_distance: float = 1.5, pathfind: bool = True) -> dict:
     """Move the AI player to the human player's current position."""
     import time as _time
-    query_msg = _json.dumps({"type": "query", "data": {"player": "human", "id": f"mtp_{int(_time.time()*1000)}"}})
-    with open(CMD_FILE, "w", encoding="utf-8") as f:
-        f.write(query_msg)
+    pipe.send({"type": "query", "data": {"player": "human", "id": f"mtp_{int(_time.time()*1000)}"}})
     _time.sleep(0.5)
     state = state_mgr.get_latest_state()
     player = state.get("player", {})
@@ -219,7 +209,6 @@ def send_order(
     """[Legacy] Send a raw order to the game. Prefer the typed tools (move_to, use_item, etc.)
     for better discoverability.  Use this only for actions that don't yet have a dedicated tool.
     """
-    import os, json as _json
     order = Order(
         action=action,
         parameters=parameters,
@@ -227,10 +216,7 @@ def send_order(
         pipeline_input=pipeline_input,
         pipeline_output=pipeline_output,
     )
-    file_path = os.path.join(GAME_DIR, "cu_mcp_commands.json")
-    msg = _json.dumps({"type": "order", "data": order.to_dict()})
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(msg)
+    pipe.send({"type": "order", "data": order.to_dict()})
     return {"order_id": order.id, "status": "dispatched"}
 
 
@@ -252,9 +238,7 @@ def get_game_state(player: str = None) -> dict:
                 When omitted, returns the currently active player's state.
     """
     if player is not None:
-        msg = _json.dumps({"type": "query", "data": {"player": player, "id": f"gs_{int(time.time()*1000)}"}})
-        with open(CMD_FILE, "w", encoding="utf-8") as f:
-            f.write(msg)
+        pipe.send({"type": "query", "data": {"player": player, "id": f"gs_{int(time.time()*1000)}"}})
         time.sleep(0.5)
         state = state_mgr.get_latest_state()
         return state
@@ -295,9 +279,7 @@ def query_position(x: float, y: float, range: float = 20.0) -> dict:
     of the specified world coordinate. Useful for scouting ahead, checking
     for enemies, or examining terrain composition at arbitrary positions.
     """
-    msg = _json.dumps({"type": "query", "data": {"x": x, "y": y, "range": range, "id": f"q_{int(time.time()*1000)}"}})
-    with open(CMD_FILE, "w", encoding="utf-8") as f:
-        f.write(msg)
+    pipe.send({"type": "query", "data": {"x": x, "y": y, "range": range, "id": f"q_{int(time.time()*1000)}"}})
     time.sleep(1.0)
     state = state_mgr.get_latest_state()
     qr = state.get("query_result")
@@ -323,9 +305,7 @@ def search_blocks(material: str, x: float = None, y: float = None, range: int = 
     if x is not None and y is not None:
         data["x"] = x
         data["y"] = y
-    msg = _json.dumps({"type": "search", "data": data})
-    with open(CMD_FILE, "w", encoding="utf-8") as f:
-        f.write(msg)
+    pipe.send({"type": "search", "data": data})
     time.sleep(1.5)
     state = state_mgr.get_latest_state()
     sr = state.get("search_result")
@@ -387,6 +367,8 @@ def main():
     global pipe, state_mgr, order_mgr, contingency_mgr
 
     print(f"[CU-MCP] Starting bridge server (platform={sys.platform})...")
+    print(f"[CU-MCP] Game link: HTTP on http://{DEFAULT_HOST}:{DEFAULT_PORT} "
+          f"(override with CU_MCP_HTTP_HOST / CU_MCP_HTTP_PORT)")
     pipe = PipeServer(PIPE_NAME)
     state_mgr = StateManager(pipe)
     order_mgr = OrderManager(pipe)
@@ -401,7 +383,7 @@ def main():
             print("[CU-MCP] Initial ping sent")
             state_mgr.start()
         except Exception as e:
-            print(f"[CU-MCP] Pipe connection failed: {e}")
+            print(f"[CU-MCP] Game transport error: {e}")
 
     t = threading.Thread(target=_connect, daemon=True)
     t.start()

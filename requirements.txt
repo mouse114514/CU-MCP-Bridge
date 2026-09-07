@@ -1,1 +1,7 @@
-fastmcp>=1.0.0
+# server.py uses the v1 MCP SDK API: `from mcp.server.fastmcp import FastMCP`.
+# mcp 2.x renamed FastMCP, so pin to v1. (The old entry `fastmcp` is a
+# different, unrelated package.)
+mcp>=1.2.0,<2
+
+# The game link is plain stdlib http.server / urllib now -- no pywin32, no
+# extra transport dependency on any platform.

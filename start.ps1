@@ -51,7 +51,8 @@ if (-not $NoGame) {
 
 # 4. MCP 服务
 Write-Host "[4/4] Python MCP 桥接服务..." -ForegroundColor Yellow
-$env:CU_MCP_PIPE = "CU-MCP-Bridge"
+$env:CU_MCP_HTTP_HOST = "127.0.0.1"
+$env:CU_MCP_HTTP_PORT = "8765"
 
 if ($Dev) {
     Write-Host "  前台模式 (Ctrl+C 退出)" -ForegroundColor Gray
