@@ -139,6 +139,9 @@ class HttpBridgeServer:
                     return
                 server._mark_seen()
                 length = int(self.headers.get("Content-Length", 0) or 0)
+                if length > 1 * 1024 * 1024:  # 1 MB cap
+                    self._write_json(413, {"error": "payload too large"})
+                    return
                 raw = self.rfile.read(length) if length else b""
                 text = raw.decode("utf-8", errors="replace")
                 for line in text.splitlines():

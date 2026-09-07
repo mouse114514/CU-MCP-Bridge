@@ -29,7 +29,7 @@ namespace CUMCP.Transport
         public event Action OnDisconnected;
 
         public bool Connected => _connected;
-        public long LastReadTicks => _lastReadTicks;
+        public long LastReadTicks => Interlocked.Read(ref _lastReadTicks);
 
         private readonly string _baseUrl;
         private readonly int _pollTimeoutSec;
@@ -40,7 +40,7 @@ namespace CUMCP.Transport
         private Thread _sendThread;
         private volatile bool _running;
         private volatile bool _connected;
-        private long _lastReadTicks;
+        private long _lastReadTicks;  // accessed via Interlocked only
 
         public HttpBridgeClient(string baseUrl = "http://127.0.0.1:8765", int pollTimeoutSec = 25)
         {
@@ -207,7 +207,7 @@ namespace CUMCP.Transport
 
         private void MarkAlive()
         {
-            _lastReadTicks = DateTime.UtcNow.Ticks;
+            Interlocked.Exchange(ref _lastReadTicks, DateTime.UtcNow.Ticks);
             if (!_connected)
             {
                 _connected = true;
@@ -232,6 +232,10 @@ namespace CUMCP.Transport
                 Thread.Sleep(50);
         }
 
-        public void Dispose() => Disconnect();
+        public void Dispose()
+        {
+            Disconnect();
+            _outboxSignal.Dispose();
+        }
     }
 }

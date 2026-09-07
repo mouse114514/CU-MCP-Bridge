@@ -101,6 +101,7 @@ namespace CUMCP.Executor
                 return;
             }
 
+            BridgePlugin.Log.LogWarning($"[CU-MCP] console: executing '{line}' — ensure server is localhost-only");
             try
             {
                 var cs = ConsoleScript.instance;

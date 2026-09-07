@@ -225,9 +225,14 @@ namespace CUMCP
             int limit = data["limit"]?.ToObject<int>() ?? 20;
 
             var body = AIPlayerManager.GetActiveBody();
-            Vector2 center = body != null ? (Vector2)body.transform.position : new Vector2(sx, sy);
-            if (data["x"] != null && data["y"] != null)
-                center = new Vector2(sx, sy);
+            bool hasExplicitPos = data["x"] != null && data["y"] != null;
+            if (!hasExplicitPos && body == null)
+            {
+                BridgePlugin.Log.LogWarning("[CU-MCP] Search: no coordinates provided and no active player body");
+                _pipe.Send(MessageBuilder.StateUpdate(new { search_result = (object)null }));
+                return;
+            }
+            Vector2 center = hasExplicitPos ? new Vector2(sx, sy) : (Vector2)body.transform.position;
 
             var searchResult = new Collector.EnvironmentScan().SearchBlocks(material, center, range, limit);
             BridgePlugin.Log.LogInfo($"[CU-MCP] Search '{material}' -> {searchResult?.TotalMatched ?? 0} match(es)");
